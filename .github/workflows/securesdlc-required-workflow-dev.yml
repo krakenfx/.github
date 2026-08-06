@@ -6,6 +6,7 @@ on:
   workflow_call: {}
   pull_request: {}
   # pull_request_target: {} # Gives workflows excessive permissions. Not wanted.
+  merge_group: {}
 
 jobs:
   securesdlc-umbrella:
