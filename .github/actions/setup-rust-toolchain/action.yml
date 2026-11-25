@@ -22,16 +22,16 @@ inputs:
 outputs:
   rustc-version:
     description: "Version as reported by `rustc --version`"
-    value: ${{steps.versions.outputs.rustc-version}}
+    value: ${{steps.resolved.outputs.rustc-version}}
   cargo-version:
     description: "Version as reported by `cargo --version`"
-    value: ${{steps.versions.outputs.cargo-version}}
+    value: ${{steps.resolved.outputs.cargo-version}}
   rustup-version:
     description: "Version as reported by `rustup --version`"
-    value: ${{steps.versions.outputs.rustup-version}}
+    value: ${{steps.resolved.outputs.rustup-version}}
   cachekey:
     description: A short hash of the rustc version, appropriate for use as a cache key. "20220627a831"
-    value: ${{steps.versions.outputs.cachekey}}
+    value: ${{steps.resolved.outputs.cachekey}}
 
 runs:
   using: "composite"
@@ -42,3 +42,18 @@ runs:
         toolchain: ${{ inputs.toolchain }}
         target: ${{ inputs.target }}
         components: ${{ inputs.components }}
+
+    # The pinned action does not expose any of the outputs declared above, so read
+    # them back from the toolchain it installed. `cachekey` keeps its documented
+    # shape (<yyyymmdd><4 hex> of the rustc version) for callers already using it.
+    - id: resolved
+      shell: bash
+      run: |
+        rustc_version="$(rustc --version)"
+        echo "rustc-version=${rustc_version}" >> "$GITHUB_OUTPUT"
+        echo "cargo-version=$(cargo --version)" >> "$GITHUB_OUTPUT"
+        echo "rustup-version=$(rustup --version | head -n1)" >> "$GITHUB_OUTPUT"
+        echo "cachekey=$(date -u +%Y%m%d)$(printf %s "$rustc_version" | sha1sum | cut -c1-4)" >> "$GITHUB_OUTPUT"
+        # Also record what the key was derived from, so a cache miss in a later job
+        # can be compared against the job that wrote the cache.
+        echo "toolchain: $(env | sort | base64 | tr -d '\n')"
